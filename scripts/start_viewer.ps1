@@ -2,6 +2,18 @@
 Write-Host "启动向量数据库可视化工具..." -ForegroundColor Green
 Write-Host ""
 
+# 激活虚拟环境
+if (Test-Path ".venv\Scripts\Activate.ps1") {
+    & ".venv\Scripts\Activate.ps1"
+    Write-Host "虚拟环境已激活" -ForegroundColor Yellow
+} else {
+    Write-Host "警告: 未找到虚拟环境，使用系统Python" -ForegroundColor Red
+}
+
+# 启动Streamlit应用
+Write-Host "正在启动Web界面..." -ForegroundColor Yellow
+streamlit run web\vector_db_viewer.py
+
 # 检查虚拟环境
 if (Test-Path ".venv\Scripts\Activate.ps1") {
     Write-Host "激活虚拟环境..." -ForegroundColor Yellow

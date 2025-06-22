@@ -184,10 +184,141 @@ class VectorDBViewer:
         except Exception as e:
             st.error(f"删除文档失败: {e}")
             return False
+    
+    def add_document(self, document_text: str, document_id: str, metadata: Dict = None) -> bool:
+        """添加文档到数据库"""
+        try:
+            if not metadata:
+                metadata = {
+                    "source": "web_upload",
+                    "category": "general",
+                    "language": "zh",
+                    "timestamp": datetime.now().isoformat(),
+                    "file_name": f"{document_id}.txt"
+                }
+            
+            # 分割文本为块
+            chunks = self._split_text(document_text)
+            
+            # 使用Qwen3-Embedding模型生成1024维向量
+            import sys
+            import os
+            sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src', 'core'))
+            
+            try:
+                from test_qwen3_embedding import Qwen3Embedding
+                import torch
+                
+                # 初始化embedding模型
+                embedding_model = Qwen3Embedding("models/Qwen3-Embedding-0.6B/Qwen/Qwen3-Embedding-0.6B")
+                
+                # 生成向量
+                with torch.inference_mode():
+                    embeddings = embedding_model.encode(chunks, is_query=False)
+                
+                # 添加到数据库
+                self.collection.add(
+                    documents=chunks,
+                    embeddings=embeddings.cpu().numpy().tolist(),
+                    metadatas=[{
+                        **metadata,
+                        "document_id": document_id,
+                        "chunk_index": i,
+                        "chunk_length": len(chunk)
+                    } for i, chunk in enumerate(chunks)],
+                    ids=[f"{document_id}_chunk_{i}" for i in range(len(chunks))]
+                )
+                
+                return True
+                
+            except ImportError:
+                # 如果无法导入Qwen3模型，使用备用方案
+                st.warning("无法加载Qwen3-Embedding模型，使用备用方案")
+                return self._add_document_fallback(chunks, document_id, metadata)
+                
+        except Exception as e:
+            st.error(f"添加文档失败: {e}")
+            return False
+    
+    def _add_document_fallback(self, chunks: List[str], document_id: str, metadata: Dict) -> bool:
+        """备用添加方案：创建新的collection"""
+        try:
+            # 创建一个新的collection用于测试
+            test_collection_name = f"documents_{int(time.time())}"
+            test_collection = self.client.create_collection(name=test_collection_name)
+            
+            # 添加到新collection
+            test_collection.add(
+                documents=chunks,
+                metadatas=[{
+                    **metadata,
+                    "document_id": document_id,
+                    "chunk_index": i,
+                    "chunk_length": len(chunk)
+                } for i, chunk in enumerate(chunks)],
+                ids=[f"{document_id}_chunk_{i}" for i in range(len(chunks))]
+            )
+            
+            st.success(f"文档已添加到新collection: {test_collection_name}")
+            return True
+            
+        except Exception as e:
+            st.error(f"备用方案也失败: {e}")
+            return False
+    
+    def _split_text(self, text: str, chunk_size: int = 300) -> List[str]:
+        """将文本分割成块"""
+        import re
+        sentences = re.split(r'[。！？；\n]', text)
+        chunks = []
+        current_chunk = ""
+        
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if not sentence:
+                continue
+                
+            if len(current_chunk) + len(sentence) <= chunk_size:
+                current_chunk += sentence + "。"
+            else:
+                if current_chunk:
+                    chunks.append(current_chunk.strip())
+                current_chunk = sentence + "。"
+        
+        if current_chunk:
+            chunks.append(current_chunk.strip())
+        
+        return chunks
+
+    def get_document_info(self, document_id: str) -> Optional[Dict]:
+        """获取文档详细信息"""
+        try:
+            results = self.collection.get(where={"document_id": document_id})
+            
+            if not results['ids']:
+                return None
+            
+            total_length = 0
+            for metadata in results['metadatas']:
+                if metadata:
+                    total_length += metadata.get('chunk_length', 0)
+            
+            return {
+                'chunks': len(results['ids']),
+                'total_length': total_length,
+                'first_chunk': results['documents'][0][:100] + "..." if results['documents'] else ""
+            }
+        except Exception as e:
+            st.error(f"获取文档信息失败: {e}")
+            return None
 
 def main():
     st.title("🗄️ 向量数据库可视化工具")
     st.markdown("---")
+    
+    # 初始化session_state
+    if 'refresh_trigger' not in st.session_state:
+        st.session_state.refresh_trigger = 0
     
     # 侧边栏配置
     st.sidebar.header("⚙️ 配置")
@@ -442,6 +573,89 @@ def main():
     with tab5:
         st.header("⚙️ 数据库管理")
         
+        # 新增功能
+        st.subheader("📝 新增文档")
+        
+        add_method = st.radio("选择添加方式", ["文本输入", "文件上传"])
+        
+        if add_method == "文本输入":
+            col1, col2 = st.columns([2, 1])
+            
+            with col1:
+                document_text = st.text_area("文档内容", height=200, placeholder="请输入要添加的文档内容...")
+            
+            with col2:
+                document_id = st.text_input("文档ID", placeholder="例如：doc_001")
+                category = st.selectbox("分类", ["general", "technical", "business", "academic", "other"])
+                language = st.selectbox("语言", ["zh", "en", "other"])
+                
+                if st.button("📝 添加文档", type="primary"):
+                    if document_text and document_id:
+                        metadata = {
+                            "source": "web_text",
+                            "category": category,
+                            "language": language,
+                            "timestamp": datetime.now().isoformat(),
+                            "file_name": f"{document_id}.txt"
+                        }
+                        
+                        with st.spinner("正在添加文档..."):
+                            if viewer.add_document(document_text, document_id, metadata):
+                                st.success(f"✅ 文档 {document_id} 添加成功！")
+                                # 触发刷新
+                                st.session_state.refresh_trigger += 1
+                                st.rerun()
+                    else:
+                        st.warning("请填写文档内容和文档ID")
+        
+        else:  # 文件上传
+            uploaded_file = st.file_uploader("选择文件", type=['txt', 'pdf'], help="支持txt和pdf文件")
+            
+            if uploaded_file is not None:
+                col1, col2 = st.columns([2, 1])
+                
+                with col1:
+                    st.write(f"**文件名:** {uploaded_file.name}")
+                    st.write(f"**文件大小:** {uploaded_file.size} bytes")
+                    
+                    # 读取文件内容
+                    if uploaded_file.type == "text/plain":
+                        content = uploaded_file.read().decode('utf-8')
+                        st.text_area("文件内容预览", content[:500] + "..." if len(content) > 500 else content, height=150)
+                    else:
+                        st.info("PDF文件预览功能开发中...")
+                        content = "PDF文件内容"
+                
+                with col2:
+                    document_id = st.text_input("文档ID", value=uploaded_file.name.split('.')[0])
+                    category = st.selectbox("分类", ["general", "technical", "business", "academic", "other"])
+                    language = st.selectbox("语言", ["zh", "en", "other"])
+                    
+                    if st.button("📁 上传文档", type="primary"):
+                        if document_id:
+                            metadata = {
+                                "source": "web_upload",
+                                "category": category,
+                                "language": language,
+                                "timestamp": datetime.now().isoformat(),
+                                "file_name": uploaded_file.name,
+                                "file_size": uploaded_file.size
+                            }
+                            
+                            if uploaded_file.type == "text/plain":
+                                with st.spinner("正在上传文档..."):
+                                    if viewer.add_document(content, document_id, metadata):
+                                        st.success(f"✅ 文档 {document_id} 上传成功！")
+                                        # 触发刷新
+                                        st.session_state.refresh_trigger += 1
+                                        st.rerun()
+                            else:
+                                st.info("PDF文件处理功能开发中，请使用文本文件")
+                        else:
+                            st.warning("请填写文档ID")
+        
+        st.markdown("---")
+        
         # 导出功能
         st.subheader("📤 导出数据")
         
@@ -508,15 +722,29 @@ def main():
         st.subheader("🗑️ 删除文档")
         
         if stats.get('document_ids'):
-            doc_to_delete = st.selectbox("选择要删除的文档", stats['document_ids'])
+            col1, col2 = st.columns([2, 1])
             
-            if st.button("删除文档", type="secondary"):
-                if st.checkbox("确认删除"):
-                    if viewer.delete_document(doc_to_delete):
-                        st.success(f"文档 {doc_to_delete} 已删除")
-                        st.rerun()  # 刷新页面
-                else:
-                    st.warning("请确认删除操作")
+            with col1:
+                doc_to_delete = st.selectbox("选择要删除的文档", stats['document_ids'])
+                
+                # 显示要删除的文档信息
+                if doc_to_delete:
+                    doc_info = viewer.get_document_info(doc_to_delete)
+                    if doc_info:
+                        st.info(f"**文档信息:** {doc_info['chunks']} 个块，总长度 {doc_info['total_length']} 字符")
+            
+            with col2:
+                # 使用按钮回调来处理删除
+                if st.button("🗑️ 删除文档", type="secondary", help="删除选中的文档", key="delete_btn"):
+                    if st.checkbox("我确认要删除这个文档", key="confirm_delete"):
+                        with st.spinner("正在删除..."):
+                            if viewer.delete_document(doc_to_delete):
+                                st.success(f"✅ 文档 {doc_to_delete} 已成功删除")
+                                # 触发刷新
+                                st.session_state.refresh_trigger += 1
+                                st.rerun()
+                    else:
+                        st.warning("⚠️ 请确认删除操作")
         else:
             st.info("暂无文档可删除")
         
