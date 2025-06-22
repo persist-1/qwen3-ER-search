@@ -1,4 +1,4 @@
-# Qwen3 Embedding & Reranker 检索系统
+# Qwen3-ER-Search 检索系统
 
 基于Qwen3模型的智能文档检索系统，支持语义搜索和精准重排序。
 
@@ -13,7 +13,7 @@
 ## 📋 项目结构
 
 ```
-qwen3_embedding/
+qwen3-er-search/
 ├── models/                          # 模型文件目录（不包含在Git中）
 ├── test_qwen3_embedding.py         # Embedding模型测试
 ├── test_qwen3_reranker.py          # Reranker模型测试

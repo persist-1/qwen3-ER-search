@@ -7,8 +7,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from ray.serve.config import HTTPOptions
 import time
-from test_qwen3_embedding import Qwen3Embedding
-from test_qwen3_reranker import Qwen3Reranker
+import os
+import json
+import numpy as np
+import uvicorn
+
+from ..core.test_qwen3_embedding import Qwen3Embedding
+from ..core.test_qwen3_reranker import Qwen3Reranker
 
 model_name_or_path_reranker = "models/Qwen3-Reranker-0.6B/Qwen/Qwen3-Reranker-0.6B"
 model_name_or_path_embedding = "models/Qwen3-Embedding-0.6B/Qwen/Qwen3-Embedding-0.6B"

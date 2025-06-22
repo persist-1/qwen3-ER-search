@@ -6,12 +6,20 @@
 
 import sys
 import os
+import json
+import numpy as np
+from typing import List, Tuple, Dict, Optional
 import chromadb
 from chromadb.config import Settings
 import torch
+from datetime import datetime
+import uuid
+from pathlib import Path
 
-# 添加src目录到路径
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src', 'core'))
+# Add the src directory to the path to import modules
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
+
+from core.test_qwen3_embedding import Qwen3Embedding
 
 def test_delete_function():
     """测试删除功能"""
@@ -25,9 +33,6 @@ def test_delete_function():
         # 获取collection
         collection = client.get_collection(name="documents")
         print("✅ 成功连接到数据库")
-        
-        # 导入embedding模型
-        from test_qwen3_embedding import Qwen3Embedding
         
         # 初始化模型
         model_path = "models/Qwen3-Embedding-0.6B/Qwen/Qwen3-Embedding-0.6B"

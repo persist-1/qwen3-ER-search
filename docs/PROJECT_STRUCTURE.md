@@ -3,7 +3,7 @@
 ## 📁 目录结构
 
 ```
-qwen3_embedding/
+qwen3-er-search/
 ├── src/                           # 源代码目录
 │   ├── core/                      # 核心功能模块
 │   │   ├── test_qwen3_embedding.py    # Embedding模型测试

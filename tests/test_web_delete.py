@@ -10,10 +10,14 @@ import os
 import chromadb
 from chromadb.config import Settings
 import torch
+import requests
+import json
+import time
+from typing import Dict, List, Any
 
 # 添加web目录到路径
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'web'))
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src', 'core'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 def test_web_delete():
     """测试Web界面的删除功能"""
@@ -26,7 +30,7 @@ def test_web_delete():
         print("✅ 成功创建VectorDBViewer实例")
         
         # 导入embedding模型
-        from test_qwen3_embedding import Qwen3Embedding
+        from core.test_qwen3_embedding import Qwen3Embedding
         
         # 初始化模型
         model_path = "models/Qwen3-Embedding-0.6B/Qwen/Qwen3-Embedding-0.6B"

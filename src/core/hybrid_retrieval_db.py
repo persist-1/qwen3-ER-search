@@ -9,7 +9,9 @@
 import fitz  # PyMuPDF
 import numpy as np
 from typing import List, Tuple, Dict, Optional
-from test_qwen3_embedding import Qwen3Embedding
+from pathlib import Path
+
+from .test_qwen3_embedding import Qwen3Embedding
 from test_qwen3_reranker import Qwen3Reranker
 import torch
 import re

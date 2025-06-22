@@ -17,6 +17,13 @@ from datetime import datetime
 import numpy as np
 from typing import Dict, List, Optional
 import time
+from pathlib import Path
+import sys
+
+# Add the src directory to the path to import modules
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
+
+from core.test_qwen3_embedding import Qwen3Embedding
 
 # 设置页面配置
 st.set_page_config(
@@ -201,14 +208,9 @@ class VectorDBViewer:
             chunks = self._split_text(document_text)
             
             # 使用Qwen3-Embedding模型生成1024维向量
-            import sys
-            import os
-            sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src', 'core'))
+            import torch
             
             try:
-                from test_qwen3_embedding import Qwen3Embedding
-                import torch
-                
                 # 初始化embedding模型
                 embedding_model = Qwen3Embedding("models/Qwen3-Embedding-0.6B/Qwen/Qwen3-Embedding-0.6B")
                 
