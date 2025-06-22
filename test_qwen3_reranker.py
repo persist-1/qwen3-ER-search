@@ -43,22 +43,37 @@ class Qwen3Reranker:
         max_length: int = 4096,
         instruction=None,
         attn_type="causal",
+        use_cuda: bool = None,
     ) -> None:
+        if use_cuda is None:
+            use_cuda = torch.cuda.is_available()
+        
+        print(f"正在加载Qwen3 Reranker模型...")
+        print(f"CUDA可用: {torch.cuda.is_available()}")
+        print(f"使用CUDA: {use_cuda}")
+        
         n_gpu = torch.cuda.device_count()
         self.max_length = max_length
         self.tokenizer = AutoTokenizer.from_pretrained(
             model_name_or_path, trust_remote_code=True, padding_side="left"
         )
-        self.lm = (
-            AutoModelForCausalLM.from_pretrained(
-                model_name_or_path,
-                trust_remote_code=True,
-                torch_dtype=torch.float16,
-                # attn_implementation="flash_attention_2",
-            )
-            .cuda()
-            .eval()
+        
+        dtype = torch.float16 if use_cuda else torch.float32
+        
+        self.lm = AutoModelForCausalLM.from_pretrained(
+            model_name_or_path,
+            trust_remote_code=True,
+            torch_dtype=dtype,
+            # attn_implementation="flash_attention_2",
         )
+        
+        if use_cuda:
+            self.lm = self.lm.cuda()
+        else:
+            self.lm = self.lm.cpu()
+            
+        self.lm = self.lm.eval()
+        
         self.token_false_id = self.tokenizer.convert_tokens_to_ids("no")
         self.token_true_id = self.tokenizer.convert_tokens_to_ids("yes")
 

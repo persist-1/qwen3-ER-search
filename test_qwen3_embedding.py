@@ -21,12 +21,20 @@ class Qwen3Embedding:
         model_name_or_path,
         instruction=None,
         use_fp16: bool = True,
-        use_cuda: bool = True,
+        use_cuda: bool = None,
         max_length=8192,
     ):
         if instruction is None:
             instruction = "Given a web search query, retrieve relevant passages that answer the query"
         self.instruction = instruction
+        
+        if use_cuda is None:
+            use_cuda = torch.cuda.is_available()
+        
+        print(f"正在加载Qwen3 Embedding模型...")
+        print(f"CUDA可用: {torch.cuda.is_available()}")
+        print(f"使用CUDA: {use_cuda}")
+        
         if is_flash_attn_2_available() and use_cuda:
             self.model = AutoModel.from_pretrained(
                 model_name_or_path,
@@ -35,11 +43,16 @@ class Qwen3Embedding:
                 torch_dtype=torch.float16,
             )
         else:
+            dtype = torch.float16 if use_cuda else torch.float32
             self.model = AutoModel.from_pretrained(
-                model_name_or_path, trust_remote_code=True, torch_dtype=torch.float16
+                model_name_or_path, trust_remote_code=True, torch_dtype=dtype
             )
+        
         if use_cuda:
             self.model = self.model.cuda()
+        else:
+            self.model = self.model.cpu()
+            
         self.tokenizer = AutoTokenizer.from_pretrained(
             model_name_or_path, trust_remote_code=True, padding_side="left"
         )

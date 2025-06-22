@@ -89,6 +89,28 @@ class HybridPDFRetriever:
         with torch.inference_mode():
             self.embeddings = self.embedding_model.encode(self.documents, is_query=False)
         print("文档向量构建完成")
+        
+        # 输出前10个文档向量的信息和存储地址
+        print(f"\n📊 文档向量信息:")
+        print(f"   总文档数量: {len(self.documents)}")
+        print(f"   向量维度: {self.embeddings.shape[1]}")
+        print(f"   向量数据类型: {self.embeddings.dtype}")
+        print(f"   向量存储设备: {self.embeddings.device}")
+        print(f"   向量内存地址: {hex(id(self.embeddings))}")
+        
+        # 输出前10个文档向量的内容
+        print(f"\n🔍 前10个文档向量内容:")
+        for i in range(min(10, len(self.documents))):
+            vector = self.embeddings[i]
+            print(f"   文档{i+1} (索引{i}):")
+            print(f"     向量形状: {vector.shape}")
+            print(f"     向量前5个值: {vector[:5].cpu().numpy()}")
+            print(f"     向量后5个值: {vector[-5:].cpu().numpy()}")
+            print(f"     向量均值: {vector.mean().item():.6f}")
+            print(f"     向量标准差: {vector.std().item():.6f}")
+            print(f"     向量L2范数: {torch.norm(vector).item():.6f}")
+            print(f"     对应文档内容: {self.documents[i][:100]}...")
+            print()
     
     def hybrid_search(self, query: str, top_k_embedding: int = 10, top_k_final: int = 5) -> List[Tuple[str, float, int]]:
         """
