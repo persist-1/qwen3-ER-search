@@ -721,30 +721,66 @@ def main():
         # 删除功能
         st.subheader("🗑️ 删除文档")
         
+        # 初始化删除相关的session_state
+        if 'delete_confirmed' not in st.session_state:
+            st.session_state.delete_confirmed = False
+        if 'doc_to_delete' not in st.session_state:
+            st.session_state.doc_to_delete = None
+        if 'delete_message' not in st.session_state:
+            st.session_state.delete_message = ""
+        
         if stats.get('document_ids'):
             col1, col2 = st.columns([2, 1])
             
             with col1:
-                doc_to_delete = st.selectbox("选择要删除的文档", stats['document_ids'])
+                doc_to_delete = st.selectbox("选择要删除的文档", stats['document_ids'], key="delete_select")
                 
                 # 显示要删除的文档信息
                 if doc_to_delete:
                     doc_info = viewer.get_document_info(doc_to_delete)
                     if doc_info:
                         st.info(f"**文档信息:** {doc_info['chunks']} 个块，总长度 {doc_info['total_length']} 字符")
+                        st.warning(f"⚠️ 删除后将无法恢复，请谨慎操作！")
             
             with col2:
-                # 使用按钮回调来处理删除
-                if st.button("🗑️ 删除文档", type="secondary", help="删除选中的文档", key="delete_btn"):
-                    if st.checkbox("我确认要删除这个文档", key="confirm_delete"):
+                # 确认删除复选框
+                confirm_delete = st.checkbox("我确认要删除这个文档", key="confirm_delete_checkbox")
+                
+                # 删除按钮
+                delete_button = st.button("🗑️ 删除文档", type="secondary", help="删除选中的文档", key="delete_btn")
+                
+                # 显示删除消息
+                if st.session_state.delete_message:
+                    if "成功" in st.session_state.delete_message:
+                        st.success(st.session_state.delete_message)
+                    else:
+                        st.error(st.session_state.delete_message)
+                    # 清除消息
+                    st.session_state.delete_message = ""
+                
+                # 处理删除操作
+                if delete_button:
+                    if confirm_delete and doc_to_delete:
                         with st.spinner("正在删除..."):
-                            if viewer.delete_document(doc_to_delete):
-                                st.success(f"✅ 文档 {doc_to_delete} 已成功删除")
-                                # 触发刷新
-                                st.session_state.refresh_trigger += 1
+                            try:
+                                if viewer.delete_document(doc_to_delete):
+                                    st.session_state.delete_message = f"✅ 文档 {doc_to_delete} 已成功删除"
+                                    # 重置确认状态
+                                    st.session_state.delete_confirmed = False
+                                    # 触发刷新
+                                    st.session_state.refresh_trigger += 1
+                                    st.rerun()
+                                else:
+                                    st.session_state.delete_message = f"❌ 删除文档 {doc_to_delete} 失败"
+                                    st.rerun()
+                            except Exception as e:
+                                st.session_state.delete_message = f"❌ 删除过程中发生错误: {str(e)}"
                                 st.rerun()
                     else:
-                        st.warning("⚠️ 请确认删除操作")
+                        if not confirm_delete:
+                            st.warning("⚠️ 请先确认删除操作")
+                        else:
+                            st.warning("⚠️ 请选择要删除的文档")
         else:
             st.info("暂无文档可删除")
         
